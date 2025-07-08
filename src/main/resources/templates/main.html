@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lichess-like Chess</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        // Custom Lichess-like colors (approximate)
+                        lichessDark: '#4CAF50', // A darker green for dark squares
+                        lichessLight: '#EEFFD1', // A lighter green for light squares
+                        lichessBoardBorder: '#282828', // Dark border
+                        lichessButtonBg: '#8BC34A', // Green button
+                        lichessButtonHover: '#7CB342', // Darker green on hover
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React and ReactDOM CDNs -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX transformation in browser (for development, typically pre-compiled in production) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- SockJS and STOMP for WebSockets (placeholders, actual usage in React code) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        /* Custom font import for Inter (Google Fonts) */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #333; /* Dark background like Lichess */
+            color: #eee;
+        }
+
+        /* Chess Piece Font Size */
+        .piece-font {
+            font-size: clamp(2rem, 8vw, 3.5rem); /* Responsive font size for pieces */
+            line-height: 1; /* Remove extra space */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+<div id="root"></div>
+
+<script type="text/babel">
+    // Main App component
+    const App = () => {
+        // Initial board setup using FEN (simplified for a starting position)
+        const initialBoard = [
+            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['', '', '', '', '', '', '', ''],
+            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
+        ];
+
+        const [board, setBoard] = React.useState(initialBoard);
+        const [selectedSquare, setSelectedSquare] = React.useState(null); // { row, col } of selected piece
+        const [possibleMoves, setPossibleMoves] = React.useState([]); // Array of { row, col } for possible moves
+        const [isSearchingMatch, setIsSearchingMatch] = React.useState(false);
+        const [matchProposal, setMatchProposal] = React.useState(null); // { matchId, opponentName, timeLeft }
+        const [gameId, setGameId] = React.useState(null); // ID of the active game
+
+        // Piece Unicode characters mapping
+        const pieceMap = {
+            'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+            'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+        };
+
+        // Function to get piece color (visually)
+        const getPieceColorClass = (piece) => {
+            if (!piece) return '';
+            return piece === piece.toUpperCase() ? 'text-white' : 'text-gray-900';
+        };
+
+        // Placeholder for fetching possible moves from backend
+        // In a real app, this would be an async call to your Spring backend
+        const fetchPossibleMoves = async (row, col) => {
+            console.log(`Frontend: Requesting possible moves for (${row}, ${col})`);
+            // --- Replace with actual API call to Spring backend ---
+            // Example: const response = await fetch('/api/game/moves', { method: 'POST', body: JSON.stringify({ boardState: board, fromSquare: {row, col} }) });
+            // const data = await response.json();
+            // setPossibleMoves(data.moves);
+            // --- End of replacement ---
+
+            // Dummy possible moves for demonstration (squares around selected piece)
+            const dummyMoves = [];
+            for (let r = -1; r <= 1; r++) {
+                for (let c = -1; c <= 1; c++) {
+                    if (r === 0 && c === 0) continue;
+                    const newRow = row + r;
+                    const newCol = col + c;
+                    if (newRow >= 0 && newCol >= 0 && newRow < 8 && newCol < 8) {
+                        dummyMoves.push({ row: newRow, col: newCol });
+                    }
+                }
+            }
+            setPossibleMoves(dummyMoves);
+        };
+
+        // Handle square click for piece selection and movement
+        const handleSquareClick = async (row, col) => {
+            if (selectedSquare && possibleMoves.some(move => move.row === row && move.col === col)) {
+                // This is a move to a possible square
+                const newBoard = board.map(arr => [...arr]); // Deep copy for immutability
+                const pieceToMove = newBoard[selectedSquare.row][selectedSquare.col];
+                newBoard[row][col] = pieceToMove;
+                newBoard[selectedSquare.row][selectedSquare.col] = ''; // Clear old position
+                setBoard(newBoard);
+                setSelectedSquare(null);
+                setPossibleMoves([]);
+
+                // --- Send move to backend via REST or WebSocket ---
+                console.log(`Frontend: Sending move from (${selectedSquare.row}, ${selectedSquare.col}) to (${row}, ${col}) to backend.`);
+                // Example REST: await fetch('/api/game/{gameId}/move', { method: 'POST', body: JSON.stringify({ from: selectedSquare, to: {row, col} }) });
+                // Example WebSocket: stompClient.send('/app/game.move', {}, JSON.stringify({ gameId: gameId, from: selectedSquare, to: {row, col} }));
+                // --- End of backend communication ---
+
+            } else if (board[row][col]) {
+                // Select a piece if one exists on the clicked square
+                setSelectedSquare({ row, col });
+                await fetchPossibleMoves(row, col); // Fetch possible moves for the selected piece
+            } else {
+                // Clicked on an empty square without a selected piece, or clicked outside possible moves
+                setSelectedSquare(null);
+                setPossibleMoves([]);
+            }
+        };
+
+        // Helper to check if a square is selected
+        const isSquareSelected = (row, col) => {
+            return selectedSquare && selectedSquare.row === row && selectedSquare.col === col;
+        };
+
+        // Helper to check if a square is a possible move target
+        const isPossibleMove = (row, col) => {
+            return possibleMoves.some(move => move.row === row && move.col === col);
+        };
+
+        // Matchmaking Handlers
+        const handleFindMatch = async () => {
+            setIsSearchingMatch(true);
+            setMatchProposal(null);
+            setGameId(null);
+            console.log('Frontend: Sending request to join matchmaking queue...');
+            // --- Send request to Spring backend ---
+            // Example: await fetch('/api/matchmaking/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'yourCurrentUserId' }) });
+            // --- End of request ---
+        };
+
+        const handleCancelSearch = async () => {
+            setIsSearchingMatch(false);
+            console.log('Frontend: Sending request to cancel matchmaking search...');
+            // --- Send request to Spring backend ---
+            // Example: await fetch('/api/matchmaking/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'yourCurrentUserId' }) });
+            // --- End of request ---
+        };
+
+        const handleAcceptMatch = async () => {
+            if (matchProposal) {
+                console.log(`Frontend: Accepting match ${matchProposal.matchId}...`);
+                // --- Send accept to Spring backend ---
+                // Example: await fetch(`/api/matchmaking/accept/${matchProposal.matchId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'yourCurrentUserId' }) });
+                // --- End of request ---
+                setMatchProposal(null); // Optimistic UI update
+                setIsSearchingMatch(false);
+            }
+        };
+
+        const handleDeclineMatch = async () => {
+            if (matchProposal) {
+                console.log(`Frontend: Declining match ${matchProposal.matchId}...`);
+                // --- Send decline to Spring backend ---
+                // Example: await fetch(`/api/matchmaking/decline/${matchProposal.matchId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'yourCurrentUserId' }) });
+                // --- End of request ---
+                setMatchProposal(null); // Hide proposal
+                setIsSearchingMatch(false); // Stop searching or re-queue
+            }
+        };
+
+        // WebSocket Setup (Conceptual - would need actual STOMP client setup)
+        React.useEffect(() => {
+            let stompClient = null;
+            const userId = 'user-123'; // Placeholder: Replace with actual logged-in user ID
+
+            // Function to connect to WebSocket
+            const connectWebSocket = () => {
+                try {
+                    const socket = new SockJS('/ws'); // Spring WebSocket endpoint
+                    stompClient = Stomp.over(socket);
+
+                    stompClient.connect({}, frame => {
+                        console.log('WebSocket Connected: ' + frame);
+
+                        // Subscribe to personal match proposal topic
+                        stompClient.subscribe(`/topic/user.${userId}.match_proposal`, message => {
+                            const proposal = JSON.parse(message.body);
+                            console.log('Match proposal received:', proposal);
+                            setMatchProposal(proposal);
+                            setIsSearchingMatch(false); // Stop searching state when proposal arrives
+                        });
+
+                        // Subscribe to game start confirmations
+                        stompClient.subscribe(`/topic/user.${userId}.game_start`, message => {
+                            const gameInfo = JSON.parse(message.body);
+                            console.log('Game started:', gameInfo);
+                            setGameId(gameInfo.gameId);
+                            setMatchProposal(null); // Hide proposal
+                            setIsSearchingMatch(false); // No longer searching
+                        });
+
+                        // Subscribe to match decline notifications
+                        stompClient.subscribe(`/topic/user.${userId}.match_declined`, message => {
+                            console.log('Match declined by opponent.');
+                            setMatchProposal(null); // Hide proposal
+                            // In a real app, show a custom modal, not alert
+                            alert('Opponent declined the match or proposal expired.');
+                            setIsSearchingMatch(false); // Reset search state
+                        });
+
+                        // Subscribe to game move updates (when a game is active)
+                        // This would typically be subscribed to only after gameId is set
+                        stompClient.subscribe(`/topic/game.${gameId}.update`, message => {
+                            const gameUpdate = JSON.parse(message.body);
+                            console.log('Game update received:', gameUpdate);
+                            // Update board state based on FEN or moves from backend
+                            // setBoard(parseFenToBoard(gameUpdate.fen));
+                        });
+
+                    }, error => {
+                        console.error('WebSocket connection error:', error);
+                        // Implement re-connection logic here if needed
+                    });
+                } catch (e) {
+                    console.error('Failed to initialize SockJS/STOMP:', e);
+                }
+            };
+
+            // Connect when component mounts
+            connectWebSocket();
+
+            // Cleanup on unmount
+            return () => {
+                if (stompClient && stompClient.connected) {
+                    stompClient.disconnect(() => console.log('WebSocket Disconnected.'));
+                }
+            };
+        }, [gameId]); // Reconnect/resubscribe if gameId changes (e.g., when a new game starts)
+
+        return (
+            <div className="flex flex-col lg:flex-row bg-gray-800 rounded-lg shadow-2xl p-6 lg:p-8 space-y-6 lg:space-y-0 lg:space-x-8 max-w-6xl mx-auto border border-lichessBoardBorder">
+                {/* Left Panel: Matchmaking / Game Info */}
+                <div className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-700 rounded-lg shadow-inner">
+                    <h2 className="text-3xl font-bold text-white mb-6">Play Chess</h2>
+
+                    {!gameId && !matchProposal && (
+                        <div className="w-full max-w-sm flex flex-col items-center">
+                            {isSearchingMatch ? (
+                                <>
+                                    <p className="text-white text-lg mb-4 animate-pulse">Searching for opponent...</p>
+                                    <button
+                                        onClick={handleCancelSearch}
+                                        className="w-full py-3 px-6 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold transition duration-200 shadow-md"
+                                    >
+                                        Cancel Search
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={handleFindMatch}
+                                    className="w-full py-3 px-6 rounded-md bg-lichessButtonBg hover:bg-lichessButtonHover text-white font-semibold transition duration-200 shadow-md"
+                                >
+                                    Find Match
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {matchProposal && (
+                        <div className="w-full max-w-sm bg-gray-600 p-5 rounded-lg shadow-lg text-center animate-fade-in">
+                            <p className="text-xl text-white font-semibold mb-3">Match Found!</p>
+                            <p className="text-white text-lg mb-4">Opponent: <span className="font-bold">{matchProposal.opponentName || 'Player 2'}</span></p>
+                            <p className="text-sm text-gray-300 mb-5">Time to accept: {matchProposal.timeLeft || '10s'}</p>
+                            <div className="flex justify-center space-x-4">
+                                <button
+                                    onClick={handleAcceptMatch}
+                                    className="flex-1 py-3 px-4 rounded-md bg-green-500 hover:bg-green-600 text-white font-semibold transition duration-200 shadow-md"
+                                >
+                                    Accept
+                                </button>
+                                <button
+                                    onClick={handleDeclineMatch}
+                                    className="flex-1 py-3 px-4 rounded-md bg-red-500 hover:bg-red-600 text-white font-semibold transition duration-200 shadow-md"
+                                >
+                                    Decline
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {gameId && (
+                        <div className="w-full max-w-sm text-center">
+                            <p className="text-xl text-white font-semibold">Game Active!</p>
+                            <p className="text-gray-300">Game ID: <span className="font-mono">{gameId}</span></p>
+                            {/* Future: Add game clock, resign button, draw offer */}
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Panel: Chess Board */}
+                <div className="flex-1 flex flex-col items-center justify-center bg-gray-700 rounded-lg shadow-inner p-4">
+                    <h2 className="text-3xl font-bold text-white mb-6">Chess Board</h2>
+                    <div className="grid grid-cols-8 gap-0 border-4 border-lichessBoardBorder rounded-md overflow-hidden shadow-xl">
+                        {board.map((rowArr, rowIndex) => (
+                            rowArr.map((piece, colIndex) => {
+                                // Determine square color
+                                const isLightSquare = (rowIndex + colIndex) % 2 === 0;
+                                const squareColorClass = isLightSquare ? 'bg-lichessLight' : 'bg-lichessDark';
+
+                                // Determine highlight for selected or possible move
+                                const highlightClass = isSquareSelected(rowIndex, colIndex)
+                                    ? 'border-4 border-blue-500 ring-4 ring-blue-300 z-10 relative' // Z-index to bring border to front
+                                    : (isPossibleMove(rowIndex, colIndex) ? 'bg-green-400 opacity-70' : '');
+
+                                return (
+                                    <div
+                                        key={`${rowIndex}-${colIndex}`}
+                                        className={`
+                                                w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24
+                                                flex items-center justify-center
+                                                cursor-pointer select-none
+                                                ${squareColorClass}
+                                                ${highlightClass}
+                                                transition-all duration-150 ease-in-out
+                                                relative
+                                            `}
+                                        onClick={() => handleSquareClick(rowIndex, colIndex)}
+                                    >
+                                        {/* Piece rendering */}
+                                        {piece && (
+                                            <span className={`piece-font font-semibold ${getPieceColorClass(piece)}`}>
+                                                    {pieceMap[piece]}
+                                                </span>
+                                        )}
+
+                                        {/* Possible move indicator (dot) */}
+                                        {isPossibleMove(rowIndex, colIndex) && !piece && (
+                                            <div className="absolute w-5 h-5 bg-green-700 rounded-full opacity-60"></div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        ))}
+                    </div>
+                    <p className="mt-6 text-center text-gray-400 text-sm">
+                        Click 'Find Match' to start, then click a piece and a highlighted square to move.
+                    </p>
+                    <p className="text-center text-gray-400 text-sm">
+                        This is a frontend demo; actual game logic and real-time updates require a Spring backend.
+                    </p>
+                </div>
+            </div>
+        );
+    };
+
+    // Render the App component into the root div
+    ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
