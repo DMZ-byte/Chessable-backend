@@ -19,6 +19,7 @@ public class ChessGameRegistry {
     }
 
     public Game createNewGame(String player1Id){
+
         Game game = new Game();
         Users player1 = this.userRepository.findById(Long.parseLong(player1Id)).orElseThrow();
         game.setWhitePlayer(player1);

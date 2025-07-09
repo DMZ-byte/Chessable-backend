@@ -47,7 +47,10 @@ public class MainController {
         String player1Id = payload.get("player1Id");
         String player2Id = payload.get("player2Id");
         String timeControl = payload.get("timeControl");
-        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),Long.parseLong(player2Id),timeControl);
+        String timeIncrement = payload.get("timeIncrement");
+        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),Long.parseLong(player2Id),timeControl,List.of());
+        newGame.setIncrement(Integer.parseInt(timeIncrement));
+        this.gameRepository.save(newGame);
         messagingTemplate.convertAndSendToUser(player2Id,
                 "queue/game-created",
                 newGame.getId()

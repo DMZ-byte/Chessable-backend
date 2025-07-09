@@ -19,17 +19,19 @@ public class Game {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
+
     @Setter
     @Transient
     private Board board;
+
     @Setter
     private String currentTurn;
 
+    private Integer increment;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "white_player_id",nullable = false)
     @JsonManagedReference
     private Users whitePlayer;
-
     public void setFenPosition(String fenPosition) {
         this.fenPosition = fenPosition;
     }
@@ -189,13 +191,37 @@ public class Game {
     }
 
     public void setBlackPlayerId(Long blackPlayerId) {
+        this.blackPlayerId = blackPlayerId;
     }
 
     public void setTimeControl(String timeControl) {
+        this.timeControl = timeControl;
     }
     public String getFenPosition() { return fenPosition; }
 
     public String getPgnMoves() { return pgnMoves; }
 
+    public Integer getIncrement() {
+        return increment;
+    }
+
+    public void setIncrement(Integer increment) {
+        this.increment = increment;
+    }
+    public void setBoard(Board board) {
+        this.board = board;
+    }
+
+    public void setCurrentTurn(String currentTurn) {
+        this.currentTurn = currentTurn;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public void setMoves(List<Moves> moves) {
+        this.moves = moves;
+    }
 
 }

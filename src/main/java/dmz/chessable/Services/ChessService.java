@@ -42,15 +42,23 @@ public class ChessService {
         this.userRepository = userRepository;
     }
 
-    public Game createGame(Long whitePlayerId, Long blackPlayerId, String timeControl){
+    public Game createGame(Long whitePlayerId, Long blackPlayerId, String timeControl,List<Moves> moves){
 
         Game game = new Game();
         game.setWhitePlayerId(whitePlayerId);
         game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
+        game.setBoard(new Board());
+        Users player1 = this.userRepository.findById(whitePlayerId).orElseThrow(RuntimeException::new);
+        Users player2 = this.userRepository.findById(blackPlayerId).orElseThrow(RuntimeException::new);
+        game.setWhitePlayer(player1);
+        game.setBlackPlayer(player2);
         game.setBlackPlayerId(blackPlayerId);
         game.setFenPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         game.setPgnMoves("");
+        game.setWhiteTimeRemaining(Long.parseLong(timeControl));
+        game.setBlackTimeRemaining(Long.parseLong(timeControl));
         game.setTimeControl(timeControl);
+        game.setMoves(moves);
         return this.gameRepository.save(game);
     }
     public List<Game> getAllAvailableGames(){
@@ -62,6 +70,9 @@ public class ChessService {
 
     public Game joinGame(Long gameId,String player2Id){
         Game game = gameRepository.findById(gameId).orElseThrow();
+        if(Long.parseLong(player2Id) == game.getBlackPlayerId() || Long.parseLong(player2Id) == game.getWhitePlayerId()){
+            throw new RuntimeException("Cannot match with yourself");
+        }
         Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow();
         if(game.getGameStatus() != GameStatus.WAITING_FOR_PLAYER){
             throw new RuntimeException("Game is not joinable.");
@@ -91,7 +102,7 @@ public class ChessService {
         if(waitingPlayerId != null && !waitingPlayerId.equals(String.valueOf(playerId))){
 
 
-            Game newGame = createGame(waitingPlayerId,playerId,"10+0"); // needs fixing
+            Game newGame = createGame(waitingPlayerId,playerId,"10+0",List.of()); // needs fixing
 
             newGame.setWhitePlayer(player1);
             newGame.setBlackPlayer(player2);
