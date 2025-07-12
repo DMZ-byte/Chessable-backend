@@ -20,8 +20,8 @@ public class LoadData {
     @Bean
     CommandLineRunner initDatabase(GameRepository gameRepository,UserRepository userRepository){
         return args -> {
-            Users user1 = new Users("user1", "filip.domazetovski5@gmail.com");
-            Users user2 = new Users("user2", "filip.domazetovski7@gmail.com");
+            Users user1 = new Users("user1", "filip.domazetovski5@gmail.com","password1");
+            Users user2 = new Users("user2", "filip.domazetovski7@gmail.com","password2");
 
             // Save users first
             user1 = userRepository.save(user1);
