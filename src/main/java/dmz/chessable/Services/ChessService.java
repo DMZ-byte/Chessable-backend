@@ -87,52 +87,89 @@ public class ChessService {
     public Game updateGame(Game game){
         return gameRepository.save(game);
     }
-    public Optional<Game> addPlayertoQueue(Long playerId){
-        // What a line eh? what it does is it takes the function from game repository and takes the string value of playerId and a list of game statuses
-        //and it checks if the players are present or not in the game statuses, it would return optional if isPresent() wasnt there.
-        Users player1 = this.userRepository.findById(playerId).orElseThrow();
+    public Optional<Game> addPlayertoQueue(Long playerId) {
+        Users playerToAdd = this.userRepository.findById(playerId).orElseThrow(() -> new RuntimeException("Player not found: " + playerId));
 
-        boolean palreadyinqueue = gameRepository.findByWhitePlayerOrBlackPlayerAndGameStatusIn(player1,player1,List.of(GameStatus.WAITING_FOR_PLAYER,GameStatus.ACTIVE)).isPresent();
-        if(palreadyinqueue){
-            System.out.print("Player " + playerId + " is already present in a game.");
-            return Optional.empty();
-        }
-        Long waitingPlayerId = matchMakingQueue.poll();
-        Users player2  = this.userRepository.findById(waitingPlayerId).orElseThrow();
-        if(waitingPlayerId != null && !waitingPlayerId.equals(String.valueOf(playerId))){
+        // Check if player is already in an active/waiting game
+        boolean pAlreadyInGame = gameRepository.findByWhitePlayerOrBlackPlayerAndGameStatusIn(
+                playerToAdd, playerToAdd, List.of(GameStatus.WAITING_FOR_PLAYER, GameStatus.ACTIVE)
+        ).isPresent();
 
-
-            Game newGame = createGame(waitingPlayerId,playerId,"10+0",List.of()); // needs fixing
-
-            newGame.setWhitePlayer(player1);
-            newGame.setBlackPlayer(player2);
-            messagingTemplate.convertAndSendToUser(
-                    String.valueOf(waitingPlayerId),
-                    "/queue/match-found",
-                    new MatchFoundMessage(newGame.getId(),true,playerId)
-            );
+        if (pAlreadyInGame) {
+            System.out.println("Player " + playerId + " is already present in a game.");
             messagingTemplate.convertAndSendToUser(
                     String.valueOf(playerId),
-                    "/queue/match-found",
-                    new MatchFoundMessage(newGame.getId(),false,waitingPlayerId)
-            );
-            messagingTemplate.convertAndSend("/topics/game"+newGame.getId(),newGame);
-
-            this.gameRepository.save(newGame);
-            return Optional.of(newGame);
-            //playerToGameMap.put(newGame.getId(),newGame); // needs fixing
-        }
-        else {
-            matchMakingQueue.offer(playerId);
-            System.out.println("Player " + playerId + " added to queue. Current queue size: " + matchMakingQueue.size());
-            messagingTemplate.convertAndSendToUser(
-                    String.valueOf(playerId),
-                    "/queue/match-status",
-                    "Waiting for an opponent..."
+                    "/queue/match-status", // Using /queue as per your config
+                    "You are already in an active or waiting game."
             );
             return Optional.empty();
         }
 
+        // Synchronize access to the queue to prevent race conditions
+        synchronized (matchMakingQueue) {
+            // Check if player is already in the queue (e.g., from a quick double-click)
+            if (matchMakingQueue.contains(playerId)) {
+                System.out.println("Player " + playerId + " is already in the queue.");
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(playerId),
+                        "/queue/match-status",
+                        "You are already in the queue."
+                );
+                return Optional.empty();
+            }
+
+            Long waitingPlayerId = matchMakingQueue.poll(); // Try to get a waiting player
+
+            if (waitingPlayerId != null) {
+                // Found a waiting player, now create a match
+                // Ensure waitingPlayerId is not the same as playerId (self-matching)
+                if (waitingPlayerId.equals(playerId)) {
+                    System.err.println("Attempted self-match, putting player back: " + playerId);
+                    matchMakingQueue.offer(playerId); // Put player back in queue if it was self-match
+                    messagingTemplate.convertAndSendToUser(
+                            String.valueOf(playerId),
+                            "/queue/match-status",
+                            "Error finding opponent, please try again."
+                    );
+                    return Optional.empty();
+                }
+
+                // Players found: waitingPlayerId (white) and playerId (black)
+                Game newGame = createGame(waitingPlayerId, playerId, "10", List.of()); // Time control "10" for 10 minutes
+                newGame.setGameStatus(GameStatus.ACTIVE); // Game is now active
+                this.gameRepository.save(newGame); // Save the game with both players
+
+                // Notify waitingPlayerId (who is white)
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(waitingPlayerId),
+                        "/queue/match-found", // Using /queue as per your config
+                        new MatchFoundMessage(newGame.getId(), true, playerId) // true for white, opponent is playerId
+                );
+                // Notify playerId (who is black)
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(playerId),
+                        "/queue/match-found", // Using /queue as per your config
+                        new MatchFoundMessage(newGame.getId(), false, waitingPlayerId) // false for black, opponent is waitingPlayerId
+                );
+
+                // Send game state to a general topic for this game (e.g., for spectating)
+                messagingTemplate.convertAndSend("/topic/game/" + newGame.getId(), newGame);
+
+                System.out.println("Match created: Game ID " + newGame.getId() + " - " + waitingPlayerId + " vs " + playerId);
+                return Optional.of(newGame);
+
+            } else {
+                // No waiting player, add current player to queue
+                matchMakingQueue.offer(playerId);
+                System.out.println("Player " + playerId + " added to queue. Current queue size: " + matchMakingQueue.size());
+                messagingTemplate.convertAndSendToUser(
+                        String.valueOf(playerId),
+                        "/queue/match-status",
+                        "Waiting for an opponent..."
+                );
+                return Optional.empty();
+            }
+        }
     }
 
 

@@ -7,6 +7,8 @@ import dmz.chessable.Model.Moves;
 import dmz.chessable.Services.ChessService;
 import dmz.chessable.dto.MoveRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.web.bind.annotation.*;
 import dmz.chessable.repository.GameRepository;
 import dmz.chessable.repository.MoveRepository;
@@ -76,6 +78,8 @@ public class MainController {
         Moves moves = this.chessService.makeMove(gameId,moveRequest.getSan(),moveRequest.getPlayerId());
         return ResponseEntity.ok(moves);
     }
+
+
 
 
 
