@@ -2,6 +2,7 @@ package dmz.chessable.controllers;
 
 
 import com.github.bhlangonijr.chesslib.move.Move;
+import java.security.Principal;
 import dmz.chessable.Model.Game;
 import dmz.chessable.Model.Moves;
 import dmz.chessable.Services.ChessService;
@@ -75,6 +76,21 @@ public class MainController {
             ){
         Moves moves = this.chessService.makeMove(gameId,moveRequest.getSan(),moveRequest.getPlayerId());
         return ResponseEntity.ok(moves);
+    }
+    @GetMapping("/{gameId}/moves")
+    public ResponseEntity<List<Moves>> getMoves(
+            @PathVariable Long gameId
+    ){
+        Game game = this.gameRepository.findById(gameId).orElseThrow(RuntimeException::new);
+        List<Moves> moves = game.getMoves();
+        return ResponseEntity.ok(moves);
+    }
+    @GetMapping("/protected-info")
+    public ResponseEntity<String> getProtectedInfo(Principal principal){
+        if(principal != null){
+            return ResponseEntity.ok("Helllo, " + principal.getName() + "! This is protected info.");
+        }
+        return ResponseEntity.status(401).body("Not authenticated");
     }
 
 
