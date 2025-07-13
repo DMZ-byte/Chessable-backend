@@ -47,11 +47,18 @@ public class MainController {
     }
     @PostMapping("/create")
     public ResponseEntity<Game> createGame(@RequestBody Map<String,String> payload){
+        if(payload.get("player1Id") != null && payload.get("player2") == null){
+            String player1Id = payload.get("player1Id");
+            String timeControl = payload.get("timeControl");
+            String timeIncrement = payload.get("timeIncrement");
+            Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of());
+
+        }
         String player1Id = payload.get("player1Id");
         String player2Id = payload.get("player2Id");
         String timeControl = payload.get("timeControl");
         String timeIncrement = payload.get("timeIncrement");
-        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),Long.parseLong(player2Id),timeControl,List.of());
+        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of());
         newGame.setIncrement(Integer.parseInt(timeIncrement));
         this.gameRepository.save(newGame);
         messagingTemplate.convertAndSendToUser(player2Id,

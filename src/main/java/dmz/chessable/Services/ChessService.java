@@ -42,17 +42,15 @@ public class ChessService {
         this.userRepository = userRepository;
     }
 
-    public Game createGame(Long whitePlayerId, Long blackPlayerId, String timeControl,List<Moves> moves){
+    public Game createGame(Long whitePlayerId, String timeControl,List<Moves> moves){
 
         Game game = new Game();
         game.setWhitePlayerId(whitePlayerId);
         game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
         game.setBoard(new Board());
-        Users player1 = this.userRepository.findById(whitePlayerId).orElseThrow(RuntimeException::new);
-        Users player2 = this.userRepository.findById(blackPlayerId).orElseThrow(RuntimeException::new);
+
+        Users player1 = this.userRepository.findById(whitePlayerId).orElseThrow(() -> new RuntimeException("White player not found: " + whitePlayerId));
         game.setWhitePlayer(player1);
-        game.setBlackPlayer(player2);
-        game.setBlackPlayerId(blackPlayerId);
         game.setFenPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         game.setPgnMoves("");
         game.setWhiteTimeRemaining(Long.parseLong(timeControl));
@@ -69,7 +67,7 @@ public class ChessService {
     }
 
     public Game joinGame(Long gameId,String player2Id){
-        Game game = gameRepository.findById(gameId).orElseThrow();
+        Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Cannot find game with gameid: " + gameId));
         if(Long.parseLong(player2Id) == game.getBlackPlayerId() || Long.parseLong(player2Id) == game.getWhitePlayerId()){
             throw new RuntimeException("Cannot match with yourself");
         }
@@ -135,7 +133,7 @@ public class ChessService {
                 }
 
                 // Players found: waitingPlayerId (white) and playerId (black)
-                Game newGame = createGame(waitingPlayerId, playerId, "10", List.of()); // Time control "10" for 10 minutes
+                Game newGame = createGame(waitingPlayerId,  "10", List.of()); // Time control "10" for 10 minutes
                 newGame.setGameStatus(GameStatus.ACTIVE); // Game is now active
                 this.gameRepository.save(newGame); // Save the game with both players
 
