@@ -1,8 +1,10 @@
 package dmz.chessable.controllers;
 
 import dmz.chessable.Model.Game;
+import dmz.chessable.Model.Users;
 import dmz.chessable.Services.ChessService;
 import dmz.chessable.repository.GameRepository;
+import dmz.chessable.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.security.Principal;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,7 @@ import java.util.Queue;
 public class MatchMakingController {
     private final SimpMessagingTemplate messagingTemplate;
     private final GameRepository gameRepository;
+    private final UserRepository userRepository;
     private final ChessService chessService;
 
     private static final Logger log = LoggerFactory.getLogger(MatchMakingController.class);
@@ -28,30 +32,38 @@ public class MatchMakingController {
 
     @Autowired
     public MatchMakingController(SimpMessagingTemplate messagingTemplate,
-                                 GameRepository gameRepository,
+                                 GameRepository gameRepository, UserRepository userRepository,
                                  ChessService chessService) {
         this.messagingTemplate = messagingTemplate;
         this.gameRepository = gameRepository;
+        this.userRepository = userRepository;
         this.chessService = chessService;
     }
 
     @MessageMapping("/queue/join")
-    public void joinQueue(@RequestBody Map<String,String> payload) {
+    public void joinQueue(@RequestBody Map<String,String> payload, Principal principal) {
         // You might want to deserialize the payload properly if it's more complex
         String userId = payload.get("userId");// crude parsing, improve as needed
         log.info("User {} joined the queue", userId);
-
+        String principalId = principal != null ? principal.getName() : "null";
+        log.info("joinQueue: userId from payload = {}, principal = {}", userId, principalId);
         if (!waitingPlayers.isEmpty()) {
             String player1Id = waitingPlayers.poll();
             String player2Id = userId;
-
+            Users user1 = this.userRepository.findById(Long.parseLong(player1Id)).orElseThrow(
+                    () -> new RuntimeException("Cannot find user with specified user id: "+player1Id)
+            );
+            Users user2 = this.userRepository.findById(Long.parseLong(player2Id)).orElseThrow(
+                    () -> new RuntimeException("Cannot find user with specified user id: "+player2Id)
+            );
 
             Game game = chessService.createGame(Long.parseLong(player1Id), "5", List.of());
-            game.setBlackPlayerId(Long.parseLong(player2Id)); // set the second player
+            game.setBlackPlayer(user2);
+            game.setWhitePlayer(user1);
             gameRepository.save(game);
             Map<String,Object> matchPayload = Map.of(
                     "gameId",game.getId(),
-                    "whiteId",userId,
+                    "whiteId",player1Id,
                     "blackId",player2Id
             );
             log.info("Match found: {} vs {}", player1Id, player2Id);

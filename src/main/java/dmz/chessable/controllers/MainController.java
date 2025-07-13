@@ -5,8 +5,12 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import java.security.Principal;
 import dmz.chessable.Model.Game;
 import dmz.chessable.Model.Moves;
+import dmz.chessable.Model.Users;
 import dmz.chessable.Services.ChessService;
+import dmz.chessable.Services.GameMapper;
+import dmz.chessable.dto.GameDto;
 import dmz.chessable.dto.MoveRequest;
+import dmz.chessable.dto.UserDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -42,8 +46,26 @@ public class MainController {
         return ResponseEntity.ok(games);
     }
     @GetMapping("/{id}")
-    public Game findGame(@PathVariable Long id){
-        return this.gameRepository.findById(id).orElseThrow(RuntimeException::new);
+    public ResponseEntity<GameDto> getGameById(@PathVariable Long id) {
+        Game game = gameRepository.findById(id).orElseThrow(
+                () -> new RuntimeException("Cannot find game with gameId:"+ id)
+        );
+
+        if (game == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Convert entity to DTO here
+        GameDto dto = GameMapper.toGameDto(game);
+
+        return ResponseEntity.ok(dto);
+    }
+    @GetMapping("/user/{userid}")
+    public ResponseEntity<Users> getUserById(@PathVariable Long userid){
+        Users user = this.userRepository.findById(userid).orElseThrow(
+                () -> new RuntimeException("User not found")
+        );
+        return ResponseEntity.ok(user);
     }
     @PostMapping("/create")
     public ResponseEntity<Game> createGame(@RequestBody Map<String,String> payload){
@@ -83,7 +105,7 @@ public class MainController {
             @PathVariable Long gameId,
             @RequestBody MoveRequest moveRequest
             ){
-        Moves moves = this.chessService.makeMove(gameId,moveRequest.getSan(),moveRequest.getPlayerId());
+        Moves moves = this.chessService.makeMove(gameId,moveRequest.getUci(),moveRequest.getPlayerId());
         return ResponseEntity.ok(moves);
     }
     @GetMapping("/{gameId}/moves")

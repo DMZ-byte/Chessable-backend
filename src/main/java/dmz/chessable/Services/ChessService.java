@@ -45,7 +45,10 @@ public class ChessService {
     public Game createGame(Long whitePlayerId, String timeControl,List<Moves> moves){
 
         Game game = new Game();
-        game.setWhitePlayerId(whitePlayerId);
+        Users user1 = this.userRepository.findById(whitePlayerId).orElseThrow(
+                () -> new RuntimeException("Cannot find user with specified user id: "+whitePlayerId)
+        );
+        game.setWhitePlayer(user1);
         game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
         game.setBoard(new Board());
 
@@ -170,44 +173,80 @@ public class ChessService {
         }
     }
 
+    private Move findLegalUciMove(Board board, String uci){
+        System.out.println("SAN received to validate: " + uci);
+        System.out.println("Legal moves:");
+        for(Move move : board.legalMoves()){
+            System.out.println(move.toString());
+            if(move.toString().equalsIgnoreCase(uci)){
+                return move;
+            }
+        }
+        throw new IllegalArgumentException("Illegal move:" + uci);
+    }
+
 
     public Optional<Game> getGame(Long id){
         return this.gameRepository.findById(id);
     }
     public void removePlayerFromQueue(Long playerId){
         matchMakingQueue.remove(playerId);
-        System.out.println("Player " + playerId + " removed from queue. Current queue size: " + matchMakingQueue.size());    }
-    public Moves makeMove(Long gameId, String san, Long playerId) {
-        Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        System.out.println("Player " + playerId + " removed from queue. Current queue size: " + matchMakingQueue.size());
+
+    }
+    public Moves makeMove(Long gameId, String uci, Long playerId) {
+        System.out.printf("Processing move: Game %d, SAN %s, Player %d%n", gameId, uci, playerId);
+        Game game = this.gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Cannot find game with gameid: "+ gameId));
+
+        Users user = this.userRepository.findById(playerId).orElseThrow(() -> new RuntimeException("Cannot find user with userId: " + playerId));
+        boolean isWhiteTurn = game.getFenPosition().contains(" w ");
+        boolean isPlayerWhite = game.getWhitePlayerId().equals(playerId);
+        boolean isPlayerBlack = game.getBlackPlayerId().equals(playerId);
+
+        if((isWhiteTurn && !isPlayerWhite) || (!isWhiteTurn && !isPlayerBlack)){
+            throw new RuntimeException("Its not " + user +"'s turn. ");
+        }
+
         Board board = new Board();
-        Users user = this.userRepository.findById(playerId).orElseThrow(() -> new RuntimeException("User not found"));
+
         board.loadFromFen(game.getFenPosition());
 
-        Move chessMove = new Move(san, board.getSideToMove());
+        Move chessMove = findLegalUciMove(board, uci);
+        board.doMove(chessMove);
+        game.setFenPosition(board.getFen());
+        game.setPgnMoves((game.getPgnMoves()+" "+uci).trim());
 
-        if (board.isMoveLegal(chessMove, true)) {
-            board.doMove(chessMove);
-            game.setFenPosition(board.getFen());
-            game.setPgnMoves(game.getPgnMoves() + " " + san);
+        game.setCurrentTurn(board.getSideToMove().value().equals("w") ? "WHITE" : "BLACK");
 
-            if (board.isMated()) {
-                game.setGameStatus(GameStatus.CHECKMATE);
-                game.setWinner(user);
-            } else if (board.isStaleMate()) {
-                game.setGameStatus(GameStatus.STALEMATE);
-            }
-            gameRepository.save(game);
-
-            Long moveNumber = moveRepository.countByGame(game) + 1;
-            Moves moveEntity = new Moves();
-            moveEntity.setGame(game);
-            moveEntity.setPlayer(user);
-            moveEntity.setSan(san);
-            moveEntity.setMoveNumber(Math.toIntExact(moveNumber));
-            moveEntity.setTimestamp(LocalDateTime.now());
-            return moveRepository.save(moveEntity);
+        if(board.isMated()){
+            game.setGameStatus(GameStatus.CHECKMATE);
+            game.setWinner(user);
+        } else if (board.isStaleMate()){
+            game.setGameStatus(GameStatus.STALEMATE);
         }
-        throw new RuntimeException("Illegal move");
+        gameRepository.save(game);
+        long moveNumber = moveRepository.countByGame(game) +1;
+        Moves moveEntity = new Moves();
+        moveEntity.setGame(game);
+        moveEntity.setPlayer(user);
+        moveEntity.setSan(uci);
+        moveEntity.setMoveNumber((int) moveNumber);
+        moveEntity.setTimestamp(LocalDateTime.now());
+        PlayerColor playerColor;
+
+        if (isPlayerWhite) {
+            playerColor = PlayerColor.WHITE;
+            moveEntity.setPlayerColor(playerColor);
+        } else if (isPlayerBlack) {
+            playerColor = PlayerColor.BLACK;
+            moveEntity.setPlayerColor(playerColor);
+        } else {
+            throw new RuntimeException("Player is neither white nor black in this game.");
+        }
+
+        return moveRepository.save(moveEntity);
+
+
     }
 
 }

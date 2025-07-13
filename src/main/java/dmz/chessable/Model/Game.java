@@ -20,70 +20,85 @@ public class Game {
     @Id
     private Long id;
 
-    @Setter
     @Transient
     private Board board;
 
-    @Setter
-    private String currentTurn;
+    private String currentTurn = "WHITE";
 
     private Integer increment;
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "white_player_id",nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "white_player_id")
     @JsonManagedReference
     private Users whitePlayer;
-    public void setFenPosition(String fenPosition) {
-        this.fenPosition = fenPosition;
-    }
 
-    @Setter
-    private String fenPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
-    public void setPgnMoves(String pgnMoves) {
-        this.pgnMoves = pgnMoves;
-    }
-
-    @Setter
-    @Column(name = "pgn_moves", columnDefinition = "TEXT")
-    private String pgnMoves = "";
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "black_player_id",nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "black_player_id")
     @JsonManagedReference
     private Users blackPlayer;
 
-    public void setWhitePlayerId(Long whitePlayerId) {
-        this.whitePlayerId = whitePlayerId;
-    }
-
-    @Setter
-    @Column(name = "white_player_id", insertable = false, updatable = false)
-    private Long whitePlayerId;
-    @Column(name = "black_player_id", insertable = false, updatable = false)
-    private Long blackPlayerId;
     @Enumerated(EnumType.STRING)
     @Column(name = "game_status", length = 20)
-    private GameStatus gameStatus = GameStatus.ACTIVE;
+    private GameStatus gameStatus = GameStatus.WAITING_FOR_PLAYER;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_id")
     private Users winner;
+
+    @Column(name = "fen_position",nullable = false)
+    private String fenPosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+    @Column(name = "pgn_moves", columnDefinition = "TEXT")
+    private String pgnMoves = "";
 
     @Column(name = "time_control", length = 10)
     private String timeControl;
 
     @Column(name = "white_time_remaining")
     private Long whiteTimeRemaining;
+
     @Column(name = "black_time_remaining")
     private Long blackTimeRemaining;
 
-    @Setter
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Setter
     @OneToMany(mappedBy = "game",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
     private List<Moves> moves;
+
+    public void setFenPosition(String fenPosition) {
+        this.fenPosition = fenPosition;
+    }
+
+
+    public void setPgnMoves(String pgnMoves) {
+        this.pgnMoves = pgnMoves;
+    }
+
+
+
+
+    /*public void setWhitePlayerId(Long whitePlayerId) {
+        this.whitePlayerId = whitePlayerId;
+    }*/
+
+    /*@Setter
+    @Column(name = "white_player_id")
+    private Long whitePlayerId;
+    @Column(name = "black_player_id")
+    private Long blackPlayerId;
+    */
+
+
+
+
+
+
+
+
+
+
+
 
     public Game(){
         this.currentTurn = "WHITE";
@@ -92,7 +107,7 @@ public class Game {
         this.whitePlayer = whitePlayer;
         this.blackPlayer = blackPlayer;
         // Parse time control and set initial times
-        parseAndSetTimeControl(timeControl);
+        this.timeControl = timeControl;
     }
     public Game(Users player1){
         this.whitePlayer = player1;
@@ -129,11 +144,11 @@ public class Game {
     }
 
     public Long getWhitePlayerId() {
-        return whitePlayerId;
+        return whitePlayer != null ? whitePlayer.getId() : null;
     }
 
     public Long getBlackPlayerId() {
-        return blackPlayerId;
+        return blackPlayer != null ? blackPlayer.getId() : null;
     }
 
     public GameStatus getGameStatus() {
@@ -190,9 +205,9 @@ public class Game {
         return this.currentTurn;
     }
 
-    public void setBlackPlayerId(Long blackPlayerId) {
+    /*public void setBlackPlayerId(Long blackPlayerId) {
         this.blackPlayerId = blackPlayerId;
-    }
+    }*/
 
     public void setTimeControl(String timeControl) {
         this.timeControl = timeControl;

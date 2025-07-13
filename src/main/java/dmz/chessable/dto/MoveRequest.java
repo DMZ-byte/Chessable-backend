@@ -9,16 +9,16 @@ public class MoveRequest {
         this.playerId = playerId;
     }
 
-    public String getSan() {
-        return san;
+    public String getUci() {
+        return uci;
     }
     public MoveRequest(){
 
     }
-    public void setSan(String san) {
-        this.san = san;
+    public void setUci(String uci) {
+        this.uci = uci;
     }
 
     private Long playerId;
-    private String san;
+    private String uci;
 }
