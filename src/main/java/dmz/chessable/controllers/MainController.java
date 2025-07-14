@@ -69,7 +69,7 @@ public class MainController {
     }
     @PostMapping("/create")
     public ResponseEntity<Game> createGame(@RequestBody Map<String,String> payload){
-        if(payload.get("player1Id") != null && payload.get("player2") == null){
+        if(payload.get("player1Id") != null ){
             String player1Id = payload.get("player1Id");
             String timeControl = payload.get("timeControl");
             String timeIncrement = payload.get("timeIncrement");
