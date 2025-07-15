@@ -1,6 +1,7 @@
 package dmz.chessable.Model;
 
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,7 @@ public class Moves {
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "game_id", nullable = false)
+    @JsonBackReference
     private Game game;
 
     @Column(name = "move_number", nullable = false)

@@ -23,7 +23,7 @@ public class Game {
     @Transient
     private Board board;
 
-    private String currentTurn = "WHITE";
+    private String currentTurn;
 
     private Integer increment;
     @ManyToOne(fetch = FetchType.EAGER)
@@ -63,7 +63,9 @@ public class Game {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+
     @OneToMany(mappedBy = "game",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Moves> moves;
 
     public void setFenPosition(String fenPosition) {

@@ -28,7 +28,7 @@ public class AuthController {
     @GetMapping("/userid")
     public ResponseEntity<Long> getUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(401).build();
         }
 
         Users userDetails = (Users) authentication.getPrincipal();

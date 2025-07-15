@@ -215,8 +215,8 @@ public class ChessService {
         board.doMove(chessMove);
         game.setFenPosition(board.getFen());
         game.setPgnMoves((game.getPgnMoves()+" "+uci).trim());
-
-        game.setCurrentTurn(board.getSideToMove().value().equals("w") ? "WHITE" : "BLACK");
+        System.out.println(board.getSideToMove().value());
+        game.setCurrentTurn(board.getSideToMove().value().equals("WHITE") ? "WHITE" : "BLACK");
 
         if(board.isMated()){
             game.setGameStatus(GameStatus.CHECKMATE);

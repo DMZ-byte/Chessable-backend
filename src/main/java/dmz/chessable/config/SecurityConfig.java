@@ -52,12 +52,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
                 .authorizeHttpRequests(auth -> auth
                         // Allow unauthenticated access to these paths
-                        .requestMatchers(HttpMethod.GET,"/api/auth/userid").authenticated()
+                        .requestMatchers(HttpMethod.GET,"/api/auth/userid").permitAll()
                         .requestMatchers(HttpMethod.POST, "/login").permitAll() // Allow login POST requests
                         .requestMatchers(HttpMethod.POST, "/register").permitAll() // If you add a registration endpoint
                         .requestMatchers("/ws/**").permitAll() // Allow WebSocket handshake (STOMP over WS)
                         .requestMatchers("/api/games").permitAll() // Allow viewing all games without auth (optional)
                         .requestMatchers("/api/games/{id}").permitAll() // Allow viewing specific game without auth (optional)
+                        .requestMatchers("/api/games/user/**").permitAll()
                         .requestMatchers("/game/**").permitAll()
                         .requestMatchers("/api/games/create").permitAll() // Temporarily allow create without auth for testing
                         .requestMatchers(HttpMethod.POST,"/api/auth/register").permitAll()
