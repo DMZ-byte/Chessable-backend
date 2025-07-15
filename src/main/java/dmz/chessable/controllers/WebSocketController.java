@@ -1,7 +1,10 @@
 // src/main/java/dmz/chessable/controllers/GameWebSocketController.java
 package dmz.chessable.controllers;
 import java.security.Principal;
+import java.util.List;
+
 import dmz.chessable.Model.Game;
+import dmz.chessable.Model.Moves;
 import dmz.chessable.Model.Users;
 import dmz.chessable.Services.ChessService;
 import dmz.chessable.dto.GameDto;
@@ -46,6 +49,7 @@ public class WebSocketController {
             Game updatedGame = chessService.makeMove(gameId, moveMessage.getUci(), authenticatedUserId).getGame();
             this.gameRepository.save(updatedGame);
             GameDto gameDto = new GameDto(updatedGame);
+
             messagingTemplate.convertAndSend("/topic/game/" + gameId, gameDto);
 
         } catch (Exception e) {

@@ -62,6 +62,28 @@ public class ChessService {
         game.setMoves(moves);
         return this.gameRepository.save(game);
     }
+    public Game createGame(Long whitePlayerId, String timeControl,List<Moves> moves,String color){
+
+        Game game = new Game();
+        Users user1 = this.userRepository.findById(whitePlayerId).orElseThrow(
+                () -> new RuntimeException("Cannot find user with specified user id: "+whitePlayerId)
+        );
+        if(color.equals("WHITE")){
+            game.setWhitePlayer(user1);
+        } else if (color.equals("BLACK")){
+            game.setBlackPlayer(user1);
+        }
+        game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
+        game.setBoard(new Board());
+
+        game.setFenPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        game.setPgnMoves("");
+        game.setWhiteTimeRemaining(Long.parseLong(timeControl));
+        game.setBlackTimeRemaining(Long.parseLong(timeControl));
+        game.setTimeControl(timeControl);
+        game.setMoves(moves);
+        return this.gameRepository.save(game);
+    }
     public List<Game> getAllAvailableGames(){
         return gameRepository.findByGameStatusIn(List.of(
                 GameStatus.WAITING_FOR_PLAYER,
@@ -70,16 +92,29 @@ public class ChessService {
     }
 
     public Game joinGame(Long gameId,String player2Id){
-        Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Cannot find game with gameid: " + gameId));
-        if(Long.parseLong(player2Id) == game.getBlackPlayerId() || Long.parseLong(player2Id) == game.getWhitePlayerId()){
-            throw new RuntimeException("Cannot match with yourself");
-        }
-        Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow();
+        Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Cannot find game with gameid: " + gameId));
+
+        Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow(()->
+                new RuntimeException("Cannot find player with that player id: " + player2Id)
+                );
         if(game.getGameStatus() != GameStatus.WAITING_FOR_PLAYER){
             throw new RuntimeException("Game is not joinable.");
         }
-
-        game.setBlackPlayer(player2);
+        System.out.println("Players of the game are" + game.getBlackPlayerId() + " and " + game.getWhitePlayerId());
+        if(game.getBlackPlayer() == null){
+            if(player2.getId().equals(game.getWhitePlayerId())){
+                throw new RuntimeException("Cannot match with yourself");
+            }
+            game.setBlackPlayer(player2);
+        } else if(game.getWhitePlayer() == null){
+            if(player2.getId().equals(game.getBlackPlayerId())){
+                throw new RuntimeException("Cannot match with yourself");
+            }
+            game.setWhitePlayer(player2);
+        } else {
+            System.out.println("Cannot join game, both players are not null");
+            throw new RuntimeException("Cannot join game, both players are not null");
+        }
         game.setGameStatus(GameStatus.ACTIVE);
         //playerToGameMap.put(player2Id,String.valueOf(gameId));
         return gameRepository.save(game);

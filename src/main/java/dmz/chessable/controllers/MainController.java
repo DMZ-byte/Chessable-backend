@@ -69,34 +69,44 @@ public class MainController {
     }
     @PostMapping("/create")
     public ResponseEntity<Game> createGame(@RequestBody Map<String,String> payload){
-        if(payload.get("player1Id") != null ){
+        if(payload.get("player1Id") != null && payload.get("player2Id") != null){
             String player1Id = payload.get("player1Id");
+            String player2Id = payload.get("player2Id");
             String timeControl = payload.get("timeControl");
             String timeIncrement = payload.get("timeIncrement");
-            Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of());
-
+            String color = payload.get("color");
+            Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of(),color);
+            this.gameRepository.save(newGame);
+            messagingTemplate.convertAndSendToUser(player2Id,
+                    "queue/game-created",
+                    newGame.getId()
+            );
+            return ResponseEntity.ok(newGame);
+        } else if (payload.get("player1Id") == null){
+            throw new RuntimeException("player id is equal to null");
         }
+
         String player1Id = payload.get("player1Id");
-        String player2Id = payload.get("player2Id");
+
         String timeControl = payload.get("timeControl");
         String timeIncrement = payload.get("timeIncrement");
-        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of());
+        String color = payload.get("color");
+        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of(),color);
         newGame.setIncrement(Integer.parseInt(timeIncrement));
         this.gameRepository.save(newGame);
-        messagingTemplate.convertAndSendToUser(player2Id,
-                "queue/game-created",
-                newGame.getId()
-        );
+        System.out.println("Simply made a new game instance with player1");
         return ResponseEntity.ok(newGame);
     }
     @PostMapping("/{gameId}/join")
     public ResponseEntity<Game> joinGame(@PathVariable String gameId,@RequestBody Map<String,String> payload){
+        System.out.println("Attempting to join game with player2: " + payload.get("playerId"));
         String player2Id = payload.get("playerId");
         try{
-            Game joinedGame = chessService.joinGame(Long.parseLong(gameId),player2Id);
+            Game joinedGame = this.chessService.joinGame(Long.parseLong(gameId),player2Id);
             messagingTemplate.convertAndSend("/topic/game/" + gameId,joinedGame);
             return ResponseEntity.ok(joinedGame);
         }catch (RuntimeException e){
+            System.out.println(e);
             return ResponseEntity.badRequest().body(null);
         }
     }
