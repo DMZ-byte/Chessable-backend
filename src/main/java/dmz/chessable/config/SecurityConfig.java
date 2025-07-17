@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.messaging.MessageSecurityMetadataSourceRegistry;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -62,7 +63,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/games/user/**").permitAll()
                         .requestMatchers("/api/games/{gameid}/moves").permitAll()
                         .requestMatchers("/game/**").permitAll()
-                        .requestMatchers("/api/games/create").permitAll() // Temporarily allow create without auth for testing
+                        .requestMatchers("/api/games/create").authenticated() // Temporarily allow create without auth for testing
                         .requestMatchers(HttpMethod.POST,"/api/auth/register").permitAll()
                         // All other requests require authentication
                         .anyRequest().authenticated()
@@ -108,4 +109,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration); // Apply to all paths
         return source;
     }
+
+
 }

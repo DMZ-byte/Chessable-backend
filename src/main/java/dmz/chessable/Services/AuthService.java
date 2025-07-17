@@ -18,7 +18,7 @@ public class AuthService {
     }
     public Users registerNewUser(RegistrationRequest registrationRequest){
         if(userRepository.findByUsername(registrationRequest.getUsername()).isPresent()){
-            throw new RuntimeException("User: "+userRepository.findByUsername(registrationRequest.getUsername())+" already exists!");
+            throw new RuntimeException("User already exists!");
         }
         Users newUser = new Users();
         newUser.setUsername(registrationRequest.getUsername());

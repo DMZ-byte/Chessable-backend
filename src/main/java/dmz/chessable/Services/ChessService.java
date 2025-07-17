@@ -97,6 +97,7 @@ public class ChessService {
         Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow(()->
                 new RuntimeException("Cannot find player with that player id: " + player2Id)
                 );
+        System.out.println("Game status is : " + game.getGameStatus());
         if(game.getGameStatus() != GameStatus.WAITING_FOR_PLAYER){
             throw new RuntimeException("Game is not joinable.");
         }

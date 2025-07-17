@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -22,7 +24,9 @@ public class AuthController {
             Users registeredUser = authService.registerNewUser(registrationRequest);
             return ResponseEntity.status(HttpStatus.CREATED).body(registeredUser);
         }catch (RuntimeException e){
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("{\"message\": \""+ e.getMessage()+ "\"}");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    Map.of("error", "User already exists.")
+            );
         }
     }
     @GetMapping("/userid")
