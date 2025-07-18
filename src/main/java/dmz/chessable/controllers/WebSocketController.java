@@ -43,7 +43,7 @@ public class WebSocketController {
         }
         String authenticatedUsername = principal.getName();
         System.out.println("Principal username: " + authenticatedUsername);
-        Users user = userRepository.findById(Long.parseLong(authenticatedUsername)).orElseThrow(RuntimeException::new);
+        Users user = userRepository.findByUsername(authenticatedUsername).orElseThrow(RuntimeException::new);
         Long authenticatedUserId = user.getId();
         try {
             Game updatedGame = chessService.makeMove(gameId, moveMessage.getUci(), authenticatedUserId).getGame();

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.security.Principal;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -42,47 +43,95 @@ public class MatchMakingController {
 
     @MessageMapping("/queue/join")
     public void joinQueue(@RequestBody Map<String,String> payload, Principal principal) {
-        // You might want to deserialize the payload properly if it's more complex
-        String userId = payload.get("userId");// crude parsing, improve as needed
+        String userId = payload.get("userId");
         log.info("User {} joined the queue", userId);
         String principalId = principal != null ? principal.getName() : "null";
         log.info("joinQueue: userId from payload = {}, principal = {}", userId, principalId);
+
+        if (userId == null || userId.trim().isEmpty()) {
+            log.error("Invalid userId received: {}", userId);
+            messagingTemplate.convertAndSendToUser(principalId, "/queue/errors", "Invalid user ID");
+            return;
+        }
+
+        // Check if user is already in queue
+        if (waitingPlayers.contains(userId)) {
+            log.warn("User {} is already in queue", userId);
+            messagingTemplate.convertAndSendToUser(userId, "/queue/match-status", "You are already in the queue...");
+            return;
+        }
+
         if (!waitingPlayers.isEmpty()) {
             String player1Id = waitingPlayers.poll();
             String player2Id = userId;
-            Users user1 = this.userRepository.findById(Long.parseLong(player1Id)).orElseThrow(
-                    () -> new RuntimeException("Cannot find user with specified user id: "+player1Id)
-            );
-            Users user2 = this.userRepository.findById(Long.parseLong(player2Id)).orElseThrow(
-                    () -> new RuntimeException("Cannot find user with specified user id: "+player2Id)
-            );
 
-            Game game = chessService.createGame(Long.parseLong(player1Id), "5", List.of());
-            game.setBlackPlayer(user2);
-            game.setWhitePlayer(user1);
-            gameRepository.save(game);
-            Map<String,Object> matchPayload = Map.of(
-                    "gameId",game.getId(),
-                    "whiteId",player1Id,
-                    "blackId",player2Id
-            );
-            log.info("Match found: {} vs {}", player1Id, player2Id);
-            messagingTemplate.convertAndSend("/user/"+player1Id+"/queue/match-found", matchPayload);
-            messagingTemplate.convertAndSend("/user/"+player2Id+"/queue/match-found", matchPayload);
+            log.info("Attempting to create match between {} and {}", player1Id, player2Id);
 
-            // Notify both users
+            try {
+                Users user1 = this.userRepository.findById(Long.parseLong(player1Id)).orElseThrow(
+                        () -> new RuntimeException("Cannot find user with specified user id: " + player1Id)
+                );
+                Users user2 = this.userRepository.findById(Long.parseLong(player2Id)).orElseThrow(
+                        () -> new RuntimeException("Cannot find user with specified user id: " + player2Id)
+                );
+
+                Game game = chessService.createGame(Long.parseLong(player1Id), "5", List.of());
+                game.setBlackPlayer(user2);
+                game.setWhitePlayer(user1);
+                game = gameRepository.save(game);
+
+                // Create the match payload with proper structure
+                Map<String, Object> matchPayload = new HashMap<>();
+                matchPayload.put("gameId", game.getId());
+                matchPayload.put("whiteId", player1Id);
+                matchPayload.put("blackId", player2Id);
+                matchPayload.put("message", "Match found!");
+
+                log.info("Match created successfully: {} vs {}, Game ID: {}", player1Id, player2Id, game.getId());
+                log.info("Sending match payload: {}", matchPayload);
+
+                // Send match found messages to both players
+                messagingTemplate.convertAndSendToUser(user1.getUsername(), "/queue/match-found", matchPayload);
+                messagingTemplate.convertAndSendToUser(user2.getUsername(), "/queue/match-found", matchPayload);
+
+                log.info("Match found messages sent to both players");
+
+            } catch (Exception e) {
+                log.error("Error creating match between {} and {}: {}", player1Id, player2Id, e.getMessage());
+
+                // Put player1 back in queue if match creation failed
+                waitingPlayers.offer(player1Id);
+
+                // Send error messages
+                messagingTemplate.convertAndSendToUser(player1Id, "/queue/errors", "Match creation failed");
+                messagingTemplate.convertAndSendToUser(player2Id, "/queue/errors", "Match creation failed");
+            }
 
         } else {
+            // Add to waiting queue
             waitingPlayers.offer(userId);
+            log.info("User {} added to waiting queue. Current queue size: {}", userId, waitingPlayers.size());
             messagingTemplate.convertAndSendToUser(userId, "/queue/match-status", "Waiting for an opponent...");
         }
     }
 
     @MessageMapping("/queue/leave")
-    public void leaveQueue(String payloadJson) {
+    public void leaveQueue(@RequestBody Map<String,String> payload, Principal principal) {
+        String userId = payload.get("userId");
+        if (userId == null && principal != null) {
+            userId = principal.getName();
+        }
 
-        String userId = payloadJson.replaceAll("[^\\w-]", "");
-        waitingPlayers.remove(userId);
-        log.info("User {} left the queue", userId);
+        if (userId != null) {
+            boolean removed = waitingPlayers.remove(userId);
+            if (removed) {
+                log.info("User {} left the queue", userId);
+                messagingTemplate.convertAndSendToUser(userId, "/queue/match-status", "Left the queue");
+            } else {
+                log.warn("User {} was not in the queue", userId);
+            }
+        } else {
+            log.error("No userId provided for leave queue request");
+        }
     }
 }
