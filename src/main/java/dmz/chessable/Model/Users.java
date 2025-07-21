@@ -1,6 +1,7 @@
 package dmz.chessable.Model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -101,7 +102,7 @@ public class Users implements UserDetails {
     private Timestamp created_at;
 
 
-
+    @JsonIgnore
     private String password;
 
     @OneToMany
