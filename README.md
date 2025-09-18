@@ -1,2 +1,2 @@
 # Chessable-backend
-Project for chess-web application 
+Back-end for chess web application using Spring.
