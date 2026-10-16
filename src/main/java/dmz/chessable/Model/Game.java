@@ -25,6 +25,7 @@ public class Game {
 
     private String currentTurn;
 
+    private Long serverTime;
     private Integer increment;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "white_player_id")
@@ -67,6 +68,12 @@ public class Game {
     @OneToMany(mappedBy = "game",cascade = CascadeType.ALL,fetch = FetchType.LAZY)
     @JsonManagedReference
     private List<Moves> moves;
+
+    @Column(name = "last_move_at")
+    private Long lastMoveAt; // epoch millis
+
+    public Long getLastMoveAt() { return lastMoveAt; }
+    public void setLastMoveAt(Long lastMoveAt) { this.lastMoveAt = lastMoveAt; }
 
     public void setFenPosition(String fenPosition) {
         this.fenPosition = fenPosition;
@@ -240,5 +247,7 @@ public class Game {
     public void setMoves(List<Moves> moves) {
         this.moves = moves;
     }
+
+    public Long getServerTime(){return this.serverTime;}
 
 }

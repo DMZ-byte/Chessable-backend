@@ -20,8 +20,15 @@ public class AuthService {
         if(userRepository.findByUsername(registrationRequest.getUsername()).isPresent()){
             throw new RuntimeException("User already exists!");
         }
+        String nickname = registrationRequest.getNickname() == null ? "" : registrationRequest.getNickname().trim();
+        if (!nickname.matches("^[A-Za-z0-9_-]{3,20}$")) {
+            throw new IllegalArgumentException(
+                    "Nickname must be 3-20 characters: letters, numbers, _ or -.");
+        }
+
         Users newUser = new Users();
         newUser.setUsername(registrationRequest.getUsername());
+        newUser.setNickname(registrationRequest.nickname);
         newUser.setPassword(passwordEncoder.encode(registrationRequest.password));
         return userRepository.save(newUser);
     }

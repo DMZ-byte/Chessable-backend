@@ -6,6 +6,7 @@ import com.github.bhlangonijr.chesslib.move.Move;
 import dmz.chessable.repository.MoveRepository;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,19 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class ChessService {
     @Autowired
     private GameRepository gameRepository;
+    @Transactional
+    public Game applyTimeoutIfExpired(Game game) {
+        if (game.getGameStatus() != GameStatus.ACTIVE || game.getLastMoveAt() == null) return game;
+        boolean whiteToMove = "WHITE".equals(game.getCurrentTurn());
+        Long base = whiteToMove ? game.getWhiteTimeRemaining() : game.getBlackTimeRemaining();
+        if (base == null) return game;
+        if (base - (System.currentTimeMillis() - game.getLastMoveAt()) > 0) return game;
+
+        if (whiteToMove) game.setWhiteTimeRemaining(0L); else game.setBlackTimeRemaining(0L);
+        game.setWinner(whiteToMove ? game.getBlackPlayer() : game.getWhitePlayer());
+        game.setGameStatus(GameStatus.TIMEOUT); // use whatever your "finished" enum value is
+        return this.gameRepository.save(game);
+    }
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
     @Autowired
@@ -118,6 +132,11 @@ public class ChessService {
         }
         game.setGameStatus(GameStatus.ACTIVE);
         //playerToGameMap.put(player2Id,String.valueOf(gameId));
+
+        long initial = Long.parseLong(game.getTimeControl()) * 60_000L;
+        game.setWhiteTimeRemaining(initial);
+        game.setBlackTimeRemaining(initial);
+        game.setLastMoveAt(System.currentTimeMillis());
         return gameRepository.save(game);
 
     }
@@ -260,8 +279,8 @@ public class ChessService {
         } else if (board.isStaleMate()){
             game.setGameStatus(GameStatus.STALEMATE);
         }
-        gameRepository.save(game);
-        long moveNumber = moveRepository.countByGame(game) +1;
+        this.gameRepository.save(game);
+        long moveNumber = this.moveRepository.countByGame(game) +1;
         Moves moveEntity = new Moves();
         moveEntity.setGame(game);
         moveEntity.setPlayer(user);
@@ -269,6 +288,17 @@ public class ChessService {
         moveEntity.setMoveNumber((int) moveNumber);
         moveEntity.setTimestamp(LocalDateTime.now());
         PlayerColor playerColor;
+
+        long now = System.currentTimeMillis();
+        boolean whiteMoving = "WHITE".equals(game.getCurrentTurn());
+        Long base = whiteMoving ? game.getWhiteTimeRemaining() : game.getBlackTimeRemaining();
+        if( base != null && game.getLastMoveAt() != null) {
+            long left = base - (now - game.getLastMoveAt());
+            if (left <= 0) throw new IllegalStateException("Time expired");
+            left += (game.getIncrement() == null ? 0 : game.getIncrement()) * 1000L;
+            if (whiteMoving) game.setWhiteTimeRemaining(left); else game.setBlackTimeRemaining(left);
+            game.setLastMoveAt(now);
+        }
 
         if (isPlayerWhite) {
             playerColor = PlayerColor.WHITE;
@@ -280,7 +310,7 @@ public class ChessService {
             throw new RuntimeException("Player is neither white nor black in this game.");
         }
 
-        return moveRepository.save(moveEntity);
+        return this.moveRepository.save(moveEntity);
 
 
     }

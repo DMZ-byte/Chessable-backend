@@ -17,7 +17,12 @@ public class RegistrationRequest {
         this.password = password;
     }
 
+    public void setNickname(String nickname){this.nickname = nickname;}
+
+    public String getNickname(){return this.nickname;}
+
     public String username;
     public String password;
+    public String nickname;
 
 }

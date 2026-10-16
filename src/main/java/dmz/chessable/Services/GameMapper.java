@@ -27,7 +27,8 @@ public class GameMapper {
         dto.setBlackTimeRemaining(game.getBlackTimeRemaining());
         dto.setIncrement(game.getIncrement());
         dto.setTimeControl(game.getTimeControl());
-
+        dto.setLastMoteAt(game.getLastMoveAt());
+        dto.setServerTime(System.currentTimeMillis());
         return dto;
     }
 }

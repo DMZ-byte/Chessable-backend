@@ -3,6 +3,7 @@ package dmz.chessable.Model;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -19,6 +20,12 @@ import java.util.List;
 @Entity
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Users implements UserDetails {
+    public void setNickname(String nickname){
+        this.nickname = nickname;
+    }
+    public String getNickname(){
+        return this.nickname;
+    }
     public Long getId() {
         return id;
     }
@@ -35,6 +42,8 @@ public class Users implements UserDetails {
     public boolean isAccountNonExpired() {
         return UserDetails.super.isAccountNonExpired();
     }
+
+    public boolean guest;
 
     @Override
     public boolean isAccountNonLocked() {
@@ -87,6 +96,13 @@ public class Users implements UserDetails {
         this.games = games;
     }
 
+    public void setGuest(Boolean guest){
+        this.guest = guest;
+    }
+    public Boolean getGuest(){
+        return this.guest;
+    }
+
     @GeneratedValue
     @Id
     private Long id;
@@ -101,8 +117,10 @@ public class Users implements UserDetails {
     private int rating;
     private Timestamp created_at;
 
+    @Column(length = 20)
+    private String nickname;
 
-    @JsonIgnore
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @OneToMany

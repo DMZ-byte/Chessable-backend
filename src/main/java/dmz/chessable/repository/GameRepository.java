@@ -3,6 +3,7 @@ package dmz.chessable.repository;
 import dmz.chessable.Model.Game;
 import dmz.chessable.Model.GameStatus;
 import dmz.chessable.Model.Users;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,3 +28,5 @@ public interface GameRepository extends JpaRepository<Game,Long> {
     List<Game> findByGameStatusIn(List<GameStatus> statuses);
     Optional<Game> findByWhitePlayerOrBlackPlayerAndGameStatusIn(
             Users whitePlayer, Users blackPlayer, List<GameStatus> statuses);}
+
+

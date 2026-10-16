@@ -16,6 +16,8 @@ public class GameDto {
     private Long blackTimeRemaining;
     private Integer increment;
     private String timeControl;
+    private Long lastMoteAt;
+    private Long serverTime;
 
     public GameDto(Game game) {
         this.id = game.getId();
@@ -29,6 +31,8 @@ public class GameDto {
         this.blackTimeRemaining = game.getBlackTimeRemaining();
         this.increment = game.getIncrement();
         this.timeControl = game.getTimeControl();
+        this.lastMoteAt = game.getLastMoveAt();
+        this.serverTime = game.getServerTime();
     }
     public GameDto(){
 
@@ -122,5 +126,15 @@ public class GameDto {
 
     public void setTimeControl(String timeControl) {
         this.timeControl = timeControl;
+    }
+
+    public void setLastMoteAt(Long lastMoteAt){this.lastMoteAt = lastMoteAt;}
+
+    public Long getLastMoteAt(){return this.lastMoteAt;}
+
+    public Long getServerTime(){return this.serverTime;}
+
+    public void setServerTime(Long serverTime) {
+        this.serverTime = serverTime;
     }
 }

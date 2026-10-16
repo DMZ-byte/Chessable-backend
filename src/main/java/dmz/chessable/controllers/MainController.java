@@ -50,7 +50,7 @@ public class MainController {
         Game game = gameRepository.findById(id).orElseThrow(
                 () -> new RuntimeException("Cannot find game with gameId:"+ id)
         );
-
+        game = chessService.applyTimeoutIfExpired(game);
         if (game == null) {
             return ResponseEntity.notFound().build();
         }

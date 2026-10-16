@@ -1,6 +1,7 @@
 // src/main/java/dmz/chessable/config/SecurityConfig.java
 package dmz.chessable.config;
 
+import dmz.chessable.Model.Users;
 import dmz.chessable.Services.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity // Enables Spring Security's web security support
@@ -58,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/register").permitAll() // If you add a registration endpoint
                         .requestMatchers(HttpMethod.POST,"/api/games/{gameid}/join").permitAll()
                         .requestMatchers("/ws/**").permitAll() // Allow WebSocket handshake (STOMP over WS)
+                        .requestMatchers(HttpMethod.POST, "/api/auth/guest").permitAll()
                         .requestMatchers("/api/games").permitAll() // Allow viewing all games without auth (optional)
                         .requestMatchers("/api/games/{id}").permitAll() // Allow viewing specific game without auth (optional)
                         .requestMatchers("/api/games/user/**").permitAll()
@@ -73,11 +76,16 @@ public class SecurityConfig {
                         .usernameParameter("username") // Name of the username field in the form
                         .passwordParameter("password") // Name of the password field in the form
                         .successHandler((request, response, authentication) -> {
+                            Users u = (Users) authentication.getPrincipal();
                             // On successful login, send a 200 OK response with user info (e.g., username, ID)
                             response.setStatus(200);
                             response.setContentType("application/json");
-                            // You might want to return a more detailed User DTO here
-                            response.getWriter().write("{\"message\": \"Login successful\", \"username\": \"" + authentication.getName() + "\"}");
+                            new com.fasterxml.jackson.databind.ObjectMapper().writeValue(
+                                    response.getWriter(),
+                                    Map.of("message", "Login successful",
+                                            "id", u.getId(),
+                                            "username", u.getUsername(),
+                                            "nickname", u.getNickname()));
                         })
                         .failureHandler((request, response, exception) -> {
                             // On failed login, send a 401 Unauthorized response

@@ -18,6 +18,6 @@ public interface UserRepository extends JpaRepository <Users,Long> {
     List<Users> findUsersByRatingRange(int minRating, int maxRating);
 
     // Find top rated users
-    @Query("SELECT u FROM Users u ORDER BY u.rating DESC")
+    @Query("SELECT u FROM Users u ORDER BY u.rating DESC limit 10")
     List<Users> findTopRatedUsers();
 }
