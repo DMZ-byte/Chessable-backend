@@ -14,21 +14,6 @@ public class GameMapper {
 
     public static GameDto toGameDto(Game game) {
         if (game == null) return null;
-
-        GameDto dto = new GameDto();
-        dto.setId(game.getId());
-        dto.setWhitePlayer(game.getWhitePlayer());
-        dto.setBlackPlayer(game.getBlackPlayer());
-        dto.setCurrentTurn(game.getCurrentTurn());
-        dto.setFenPosition(game.getFenPosition());
-        dto.setPgnMoves(game.getPgnMoves());
-        dto.setGameStatus(game.getGameStatus());
-        dto.setWhiteTimeRemaining(game.getWhiteTimeRemaining());
-        dto.setBlackTimeRemaining(game.getBlackTimeRemaining());
-        dto.setIncrement(game.getIncrement());
-        dto.setTimeControl(game.getTimeControl());
-        dto.setLastMoteAt(game.getLastMoveAt());
-        dto.setServerTime(System.currentTimeMillis());
-        return dto;
+        return new GameDto(game);
     }
 }

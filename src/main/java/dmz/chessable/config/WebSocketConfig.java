@@ -46,9 +46,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                if (StompCommand.CONNECT.equals(accessor.getCommand())) {
+                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
                     Authentication user = SecurityContextHolder.getContext().getAuthentication();
-                    accessor.setUser(user); // Attach authenticated principal
+                    if (user != null) {
+                        accessor.setUser(user); // Attach authenticated principal if available
+                    }
                 }
                 return message;
             }

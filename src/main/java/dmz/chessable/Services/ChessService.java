@@ -56,73 +56,144 @@ public class ChessService {
         this.userRepository = userRepository;
     }
 
-    public Game createGame(Long whitePlayerId, String timeControl,List<Moves> moves){
-
-        Game game = new Game();
-        Users user1 = this.userRepository.findById(whitePlayerId).orElseThrow(
-                () -> new RuntimeException("Cannot find user with specified user id: "+whitePlayerId)
-        );
-        game.setWhitePlayer(user1);
-        game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
-        game.setBoard(new Board());
-
-        Users player1 = this.userRepository.findById(whitePlayerId).orElseThrow(() -> new RuntimeException("White player not found: " + whitePlayerId));
-        game.setWhitePlayer(player1);
-        game.setFenPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        game.setPgnMoves("");
-        game.setWhiteTimeRemaining(Long.parseLong(timeControl));
-        game.setBlackTimeRemaining(Long.parseLong(timeControl));
-        game.setTimeControl(timeControl);
-        game.setMoves(moves);
-        return this.gameRepository.save(game);
+    public static long parseInitialTimeMillis(String timeControl) {
+        if (timeControl == null || timeControl.trim().isEmpty()) {
+            return 5 * 60 * 1000L;
+        }
+        String tc = timeControl.trim().toLowerCase();
+        if ("bullet".equals(tc)) {
+            return 1 * 60 * 1000L;
+        }
+        if ("blitz".equals(tc)) {
+            return 5 * 60 * 1000L;
+        }
+        if ("rapid".equals(tc)) {
+            return 10 * 60 * 1000L;
+        }
+        if ("classical".equals(tc)) {
+            return 30 * 60 * 1000L;
+        }
+        if (tc.contains("+")) {
+            String[] parts = tc.split("\\+");
+            try {
+                long minutes = Long.parseLong(parts[0].trim());
+                return minutes * 60 * 1000L;
+            } catch (NumberFormatException ignored) {}
+        } else if (tc.contains("|")) {
+            String[] parts = tc.split("\\|");
+            try {
+                long minutes = Long.parseLong(parts[0].trim());
+                return minutes * 60 * 1000L;
+            } catch (NumberFormatException ignored) {}
+        } else {
+            try {
+                long val = Long.parseLong(tc);
+                if (val <= 180) {
+                    return val * 60 * 1000L;
+                } else if (val >= 60_000) {
+                    return val;
+                } else {
+                    return val * 1000L;
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        return 5 * 60 * 1000L;
     }
-    public Game createGame(Long whitePlayerId, String timeControl,List<Moves> moves,String color){
 
+    public static Integer parseIncrement(String timeControl, Integer increment) {
+        if (increment != null) {
+            return increment;
+        }
+        if (timeControl != null) {
+            String tc = timeControl.trim();
+            if (tc.contains("+")) {
+                String[] parts = tc.split("\\+");
+                if (parts.length > 1) {
+                    try {
+                        return Integer.parseInt(parts[1].trim());
+                    } catch (NumberFormatException ignored) {}
+                }
+            } else if (tc.contains("|")) {
+                String[] parts = tc.split("\\|");
+                if (parts.length > 1) {
+                    try {
+                        return Integer.parseInt(parts[1].trim());
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static String getQueueKey(String timeControl, Integer increment) {
+        long initialMillis = parseInitialTimeMillis(timeControl);
+        long minutes = initialMillis / (60 * 1000L);
+        int inc = parseIncrement(timeControl, increment);
+        return minutes + "+" + inc;
+    }
+
+    public Game createGame(Long whitePlayerId, String timeControl, List<Moves> moves) {
+        return createGame(whitePlayerId, timeControl, null, moves, "WHITE");
+    }
+
+    public Game createGame(Long whitePlayerId, String timeControl, List<Moves> moves, String color) {
+        return createGame(whitePlayerId, timeControl, null, moves, color);
+    }
+
+    public Game createGame(Long whitePlayerId, String timeControl, Integer increment, List<Moves> moves) {
+        return createGame(whitePlayerId, timeControl, increment, moves, "WHITE");
+    }
+
+    public Game createGame(Long whitePlayerId, String timeControl, Integer increment, List<Moves> moves, String color) {
         Game game = new Game();
         Users user1 = this.userRepository.findById(whitePlayerId).orElseThrow(
-                () -> new RuntimeException("Cannot find user with specified user id: "+whitePlayerId)
+                () -> new RuntimeException("Cannot find user with specified user id: " + whitePlayerId)
         );
-        if(color.equals("WHITE")){
-            game.setWhitePlayer(user1);
-        } else if (color.equals("BLACK")){
+        if ("BLACK".equalsIgnoreCase(color)) {
             game.setBlackPlayer(user1);
+        } else {
+            game.setWhitePlayer(user1);
         }
         game.setGameStatus(GameStatus.WAITING_FOR_PLAYER);
         game.setBoard(new Board());
-
         game.setFenPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         game.setPgnMoves("");
-        game.setWhiteTimeRemaining(Long.parseLong(timeControl));
-        game.setBlackTimeRemaining(Long.parseLong(timeControl));
-        game.setTimeControl(timeControl);
-        game.setMoves(moves);
+        long initialTime = parseInitialTimeMillis(timeControl);
+        Integer inc = parseIncrement(timeControl, increment);
+        game.setWhiteTimeRemaining(initialTime);
+        game.setBlackTimeRemaining(initialTime);
+        game.setTimeControl(timeControl != null ? timeControl : "5");
+        game.setIncrement(inc);
+        game.setCurrentTurn("WHITE");
+        game.setMoves(moves != null ? moves : List.of());
         return this.gameRepository.save(game);
     }
-    public List<Game> getAllAvailableGames(){
+
+    public List<Game> getAllAvailableGames() {
         return gameRepository.findByGameStatusIn(List.of(
                 GameStatus.WAITING_FOR_PLAYER,
                 GameStatus.ACTIVE
         ));
     }
 
-    public Game joinGame(Long gameId,String player2Id){
+    public Game joinGame(Long gameId, String player2Id) {
         Game game = this.gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Cannot find game with gameid: " + gameId));
 
-        Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow(()->
+        Users player2 = userRepository.findById(Long.parseLong(player2Id)).orElseThrow(() ->
                 new RuntimeException("Cannot find player with that player id: " + player2Id)
-                );
+        );
         System.out.println("Game status is : " + game.getGameStatus());
-        if(game.getGameStatus() != GameStatus.WAITING_FOR_PLAYER){
+        if (game.getGameStatus() != GameStatus.WAITING_FOR_PLAYER) {
             throw new RuntimeException("Game is not joinable.");
         }
         System.out.println("Players of the game are" + game.getBlackPlayerId() + " and " + game.getWhitePlayerId());
-        if(game.getBlackPlayer() == null){
-            if(player2.getId().equals(game.getWhitePlayerId())){
+        if (game.getBlackPlayer() == null) {
+            if (player2.getId().equals(game.getWhitePlayerId())) {
                 throw new RuntimeException("Cannot match with yourself");
             }
             game.setBlackPlayer(player2);
-        } else if(game.getWhitePlayer() == null){
-            if(player2.getId().equals(game.getBlackPlayerId())){
+        } else if (game.getWhitePlayer() == null) {
+            if (player2.getId().equals(game.getBlackPlayerId())) {
                 throw new RuntimeException("Cannot match with yourself");
             }
             game.setWhitePlayer(player2);
@@ -131,18 +202,22 @@ public class ChessService {
             throw new RuntimeException("Cannot join game, both players are not null");
         }
         game.setGameStatus(GameStatus.ACTIVE);
-        //playerToGameMap.put(player2Id,String.valueOf(gameId));
 
-        long initial = Long.parseLong(game.getTimeControl()) * 60_000L;
+        long initial = parseInitialTimeMillis(game.getTimeControl());
         game.setWhiteTimeRemaining(initial);
         game.setBlackTimeRemaining(initial);
+        if (game.getIncrement() == null) {
+            game.setIncrement(parseIncrement(game.getTimeControl(), null));
+        }
+        game.setCurrentTurn("WHITE");
         game.setLastMoveAt(System.currentTimeMillis());
         return gameRepository.save(game);
-
     }
-    public Game updateGame(Game game){
+
+    public Game updateGame(Game game) {
         return gameRepository.save(game);
     }
+
     public Optional<Game> addPlayertoQueue(Long playerId) {
         Users playerToAdd = this.userRepository.findById(playerId).orElseThrow(() -> new RuntimeException("Player not found: " + playerId));
 
@@ -154,8 +229,13 @@ public class ChessService {
         if (pAlreadyInGame) {
             System.out.println("Player " + playerId + " is already present in a game.");
             messagingTemplate.convertAndSendToUser(
+                    playerToAdd.getUsername(),
+                    "/queue/match-status",
+                    "You are already in an active or waiting game."
+            );
+            messagingTemplate.convertAndSendToUser(
                     String.valueOf(playerId),
-                    "/queue/match-status", // Using /queue as per your config
+                    "/queue/match-status",
                     "You are already in an active or waiting game."
             );
             return Optional.empty();
@@ -166,6 +246,11 @@ public class ChessService {
             // Check if player is already in the queue (e.g., from a quick double-click)
             if (matchMakingQueue.contains(playerId)) {
                 System.out.println("Player " + playerId + " is already in the queue.");
+                messagingTemplate.convertAndSendToUser(
+                        playerToAdd.getUsername(),
+                        "/queue/match-status",
+                        "You are already in the queue."
+                );
                 messagingTemplate.convertAndSendToUser(
                         String.valueOf(playerId),
                         "/queue/match-status",
@@ -183,6 +268,11 @@ public class ChessService {
                     System.err.println("Attempted self-match, putting player back: " + playerId);
                     matchMakingQueue.offer(playerId); // Put player back in queue if it was self-match
                     messagingTemplate.convertAndSendToUser(
+                            playerToAdd.getUsername(),
+                            "/queue/match-status",
+                            "Error finding opponent, please try again."
+                    );
+                    messagingTemplate.convertAndSendToUser(
                             String.valueOf(playerId),
                             "/queue/match-status",
                             "Error finding opponent, please try again."
@@ -190,26 +280,30 @@ public class ChessService {
                     return Optional.empty();
                 }
 
+                Users waitingUser = this.userRepository.findById(waitingPlayerId).orElseThrow(
+                        () -> new RuntimeException("Waiting player not found: " + waitingPlayerId)
+                );
+
                 // Players found: waitingPlayerId (white) and playerId (black)
-                Game newGame = createGame(waitingPlayerId,  "10", List.of()); // Time control "10" for 10 minutes
+                Game newGame = createGame(waitingPlayerId, "10", 0, List.of()); // Time control "10" for 10 minutes
+                newGame.setBlackPlayer(playerToAdd);
                 newGame.setGameStatus(GameStatus.ACTIVE); // Game is now active
+                newGame.setLastMoveAt(System.currentTimeMillis());
                 this.gameRepository.save(newGame); // Save the game with both players
 
+                MatchFoundMessage whiteMsg = new MatchFoundMessage(newGame.getId(), true, playerId);
+                MatchFoundMessage blackMsg = new MatchFoundMessage(newGame.getId(), false, waitingPlayerId);
+
                 // Notify waitingPlayerId (who is white)
-                messagingTemplate.convertAndSendToUser(
-                        String.valueOf(waitingPlayerId),
-                        "/queue/match-found", // Using /queue as per your config
-                        new MatchFoundMessage(newGame.getId(), true, playerId) // true for white, opponent is playerId
-                );
+                messagingTemplate.convertAndSendToUser(waitingUser.getUsername(), "/queue/match-found", whiteMsg);
+                messagingTemplate.convertAndSendToUser(String.valueOf(waitingPlayerId), "/queue/match-found", whiteMsg);
+
                 // Notify playerId (who is black)
-                messagingTemplate.convertAndSendToUser(
-                        String.valueOf(playerId),
-                        "/queue/match-found", // Using /queue as per your config
-                        new MatchFoundMessage(newGame.getId(), false, waitingPlayerId) // false for black, opponent is waitingPlayerId
-                );
+                messagingTemplate.convertAndSendToUser(playerToAdd.getUsername(), "/queue/match-found", blackMsg);
+                messagingTemplate.convertAndSendToUser(String.valueOf(playerId), "/queue/match-found", blackMsg);
 
                 // Send game state to a general topic for this game (e.g., for spectating)
-                messagingTemplate.convertAndSend("/topic/game/" + newGame.getId(), newGame);
+                messagingTemplate.convertAndSend("/topic/game/" + newGame.getId(), GameMapper.toGameDto(newGame));
 
                 System.out.println("Match created: Game ID " + newGame.getId() + " - " + waitingPlayerId + " vs " + playerId);
                 return Optional.of(newGame);
@@ -218,6 +312,11 @@ public class ChessService {
                 // No waiting player, add current player to queue
                 matchMakingQueue.offer(playerId);
                 System.out.println("Player " + playerId + " added to queue. Current queue size: " + matchMakingQueue.size());
+                messagingTemplate.convertAndSendToUser(
+                        playerToAdd.getUsername(),
+                        "/queue/match-status",
+                        "Waiting for an opponent..."
+                );
                 messagingTemplate.convertAndSendToUser(
                         String.valueOf(playerId),
                         "/queue/match-status",
@@ -249,14 +348,46 @@ public class ChessService {
         System.out.println("Player " + playerId + " removed from queue. Current queue size: " + matchMakingQueue.size());
 
     }
+    public static class TimeExpiredException extends RuntimeException {
+        public TimeExpiredException(String message) {
+            super(message);
+        }
+    }
+
+    private void chargeMoverClock(Game game, boolean whiteMoved) {
+        Long base = whiteMoved ? game.getWhiteTimeRemaining() : game.getBlackTimeRemaining();
+        if (base == null) return; // untimed game
+
+        long now = System.currentTimeMillis();
+        long lastMove = game.getLastMoveAt() != null ? game.getLastMoveAt() : now;
+        long elapsed = Math.max(0L, now - lastMove);
+        long left = Math.max(1L, base - elapsed);
+        left += (game.getIncrement() == null ? 0 : game.getIncrement()) * 1000L;
+
+        if (whiteMoved) game.setWhiteTimeRemaining(left); else game.setBlackTimeRemaining(left);
+        game.setLastMoveAt(now);
+    }
+
+    @Transactional(dontRollbackOn = TimeExpiredException.class)
     public Moves makeMove(Long gameId, String uci, Long playerId) {
         System.out.printf("Processing move: Game %d, SAN %s, Player %d%n", gameId, uci, playerId);
         Game game = this.gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Cannot find game with gameid: "+ gameId));
 
         Users user = this.userRepository.findById(playerId).orElseThrow(() -> new RuntimeException("Cannot find user with userId: " + playerId));
+
+        if (game.getGameStatus() != GameStatus.ACTIVE) {
+            throw new RuntimeException("Game is not active.");
+        }
+
+        // If the side to move already ran out of time, flag the game and reject the move.
+        game = applyTimeoutIfExpired(game);
+        if (game.getGameStatus() != GameStatus.ACTIVE) {
+            throw new TimeExpiredException("Time expired.");
+        }
+
         boolean isWhiteTurn = game.getFenPosition().contains(" w ");
-        boolean isPlayerWhite = game.getWhitePlayerId().equals(playerId);
-        boolean isPlayerBlack = game.getBlackPlayerId().equals(playerId);
+        boolean isPlayerWhite = game.getWhitePlayerId() != null && game.getWhitePlayerId().equals(playerId);
+        boolean isPlayerBlack = game.getBlackPlayerId() != null && game.getBlackPlayerId().equals(playerId);
 
         if((isWhiteTurn && !isPlayerWhite) || (!isWhiteTurn && !isPlayerBlack)){
             throw new RuntimeException("Its not " + user +"'s turn. ");
@@ -267,6 +398,9 @@ public class ChessService {
         board.loadFromFen(game.getFenPosition());
 
         Move chessMove = findLegalUciMove(board, uci);
+
+        chargeMoverClock(game, isWhiteTurn);
+
         board.doMove(chessMove);
         game.setFenPosition(board.getFen());
         game.setPgnMoves((game.getPgnMoves()+" "+uci).trim());
@@ -276,6 +410,7 @@ public class ChessService {
         if(board.isMated()){
             game.setGameStatus(GameStatus.CHECKMATE);
             game.setWinner(user);
+            System.out.println("winner is: "+game.getWinner());
         } else if (board.isStaleMate()){
             game.setGameStatus(GameStatus.STALEMATE);
         }
@@ -289,17 +424,6 @@ public class ChessService {
         moveEntity.setTimestamp(LocalDateTime.now());
         PlayerColor playerColor;
 
-        long now = System.currentTimeMillis();
-        boolean whiteMoving = "WHITE".equals(game.getCurrentTurn());
-        Long base = whiteMoving ? game.getWhiteTimeRemaining() : game.getBlackTimeRemaining();
-        if( base != null && game.getLastMoveAt() != null) {
-            long left = base - (now - game.getLastMoveAt());
-            if (left <= 0) throw new IllegalStateException("Time expired");
-            left += (game.getIncrement() == null ? 0 : game.getIncrement()) * 1000L;
-            if (whiteMoving) game.setWhiteTimeRemaining(left); else game.setBlackTimeRemaining(left);
-            game.setLastMoveAt(now);
-        }
-
         if (isPlayerWhite) {
             playerColor = PlayerColor.WHITE;
             moveEntity.setPlayerColor(playerColor);
@@ -309,10 +433,11 @@ public class ChessService {
         } else {
             throw new RuntimeException("Player is neither white nor black in this game.");
         }
+        System.out.println("Time control is: "+game.getTimeControl());
+        System.out.println("Black remaining time is: "+game.getBlackTimeRemaining());
+        System.out.println("White remaining time is: "+game.getWhiteTimeRemaining());
 
         return this.moveRepository.save(moveEntity);
-
-
     }
 
 }

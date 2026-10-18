@@ -13,6 +13,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -114,7 +115,9 @@ public class Users implements UserDetails {
     @Column(unique = true,length = 100)
     @Email
     private String email;
-    private int rating;
+    private int rating = 1000;
+
+
     private Timestamp created_at;
 
     @Column(length = 20)
@@ -134,6 +137,7 @@ public class Users implements UserDetails {
         this.username = username;
         this.email = email;
         this.password = password;
+        this.created_at = Timestamp.from(Instant.now());
     }
 
     @Override

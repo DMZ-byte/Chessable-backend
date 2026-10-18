@@ -9,20 +9,26 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import dmz.chessable.repository.GameRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class LoadData {
 
     private static final Logger log = LoggerFactory.getLogger(LoadData.class);
+    private final PasswordEncoder passwordEncoder;
 
+    public LoadData(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
 
 
     @Bean
     CommandLineRunner initDatabase(GameRepository gameRepository,UserRepository userRepository){
         return args -> {
-            Users user1 = new Users("user1", "filip.domazetovski5@gmail.com","password1");
-            Users user2 = new Users("user2", "filip.domazetovski7@gmail.com","password2");
-
+            Users user1 = new Users("user1", "filip.domazetovski5@gmail.com", passwordEncoder.encode("password1"));
+            Users user2 = new Users("user2", "filip.domazetovski7@gmail.com",passwordEncoder.encode("password2"));
+            user1.setNickname("userfirst");
+            user2.setNickname("usersecond");
             // Save users first
             user1 = userRepository.save(user1);
             user2 = userRepository.save(user2);

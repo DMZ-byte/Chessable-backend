@@ -25,7 +25,6 @@ public class Game {
 
     private String currentTurn;
 
-    private Long serverTime;
     private Integer increment;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "white_player_id")
@@ -248,6 +247,5 @@ public class Game {
         this.moves = moves;
     }
 
-    public Long getServerTime(){return this.serverTime;}
 
 }

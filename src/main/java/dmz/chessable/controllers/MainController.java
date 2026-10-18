@@ -74,8 +74,12 @@ public class MainController {
             String player2Id = payload.get("player2Id");
             String timeControl = payload.get("timeControl");
             String timeIncrement = payload.get("timeIncrement");
+            if (timeIncrement == null) {
+                timeIncrement = payload.get("increment");
+            }
             String color = payload.get("color");
-            Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of(),color);
+            Integer inc = timeIncrement != null && !timeIncrement.trim().isEmpty() ? Integer.parseInt(timeIncrement.trim()) : null;
+            Game newGame = this.chessService.createGame(Long.parseLong(player1Id), timeControl, inc, List.of(), color != null ? color : "WHITE");
             this.gameRepository.save(newGame);
             messagingTemplate.convertAndSendToUser(player2Id,
                     "queue/game-created",
@@ -90,9 +94,12 @@ public class MainController {
 
         String timeControl = payload.get("timeControl");
         String timeIncrement = payload.get("timeIncrement");
+        if (timeIncrement == null) {
+            timeIncrement = payload.get("increment");
+        }
         String color = payload.get("color");
-        Game newGame = this.chessService.createGame(Long.parseLong(player1Id),timeControl,List.of(),color);
-        newGame.setIncrement(Integer.parseInt(timeIncrement));
+        Integer inc = timeIncrement != null && !timeIncrement.trim().isEmpty() ? Integer.parseInt(timeIncrement.trim()) : null;
+        Game newGame = this.chessService.createGame(Long.parseLong(player1Id), timeControl, inc, List.of(), color != null ? color : "WHITE");
         this.gameRepository.save(newGame);
         System.out.println("Simply made a new game instance with player1");
         return ResponseEntity.ok(newGame);
